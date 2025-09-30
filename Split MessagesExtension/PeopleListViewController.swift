@@ -255,7 +255,7 @@ class PeopleListViewController: UIViewController {
     private var isPercentMode = true
     private var isEqualMode = false
     
-    private var people: [Person] = [
+    var people: [Person] = [
         Person(name: "Shabicha", percentage: 100),
         Person(name: "Shabicha", percentage: 20),
         Person(name: "Shabicha", percentage: 53)

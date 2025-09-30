@@ -278,6 +278,8 @@ class MessagesViewController: MSMessagesAppViewController {
         send.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
         send.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20).isActive = true
         
+
+        
         people.text = "PEOPLE"
         people.textColor = UIColor(red: 0.557, green: 0.557, blue: 0.576, alpha: 1)
         people.font = UIFont.systemFont(ofSize: 12.7, weight: .regular)
@@ -294,6 +296,8 @@ class MessagesViewController: MSMessagesAppViewController {
             view.addGestureRecognizer(tapGesture)
 
     }
+    
+    
     
     @objc private func dismissKeyboard() {
         view.endEditing(true)
