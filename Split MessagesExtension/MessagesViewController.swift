@@ -450,37 +450,38 @@ class MessagesViewController: MSMessagesAppViewController {
         
         // Convert people to PersonSplit with calculated amounts
         var personSplits: [SplitBillMessage.PersonSplit] = []
-        
-        if isEqualSelected {
-            let equalAmount = totalAmount / Double(people.count)
-            for person in people {
-                let split = SplitBillMessage.PersonSplit(
-                    name: person.name.isEmpty ? "Person" : person.name,
-                    amount: equalAmount,
-                    isPaid: false
-                )
-                personSplits.append(split)
-            }
-        } else if isPercentSelected {
-            for person in people {
-                let amount = (Double(person.percentage) / 100.0) * totalAmount
-                let split = SplitBillMessage.PersonSplit(
-                    name: person.name.isEmpty ? "Person" : person.name,
-                    amount: amount,
-                    isPaid: false
-                )
-                personSplits.append(split)
-            }
-        } else { // dollar mode
-            for person in people {
-                let split = SplitBillMessage.PersonSplit(
-                    name: person.name.isEmpty ? "Person" : person.name,
-                    amount: Double(person.percentage), // In dollar mode, percentage field holds dollar amount
-                    isPaid: false
-                )
-                personSplits.append(split)
-            }
-        }
+                        
+                for (index, person) in people.enumerated() {
+                    let indexPath = IndexPath(row: index, section: 0)
+                    var dollarAmount: Double = 0.0
+                    
+                    // Read the current value from the cell
+                    if let cell = peopleListVC?.tableView.cellForRow(at: indexPath) as? PersonTableViewCell,
+                       let valueText = cell.percentageTextField.text,
+                       let value = Double(valueText) {
+                        
+                        if isEqualSelected {
+                            // Equal split - divide total evenly
+                            dollarAmount = totalAmount / Double(people.count)
+                        } else if isPercentSelected {
+                            // Convert percentage to dollars
+                            dollarAmount = (value / 100.0) * totalAmount
+                        } else {
+                            // Already in dollars
+                            dollarAmount = value
+                        }
+                    } else if isEqualSelected {
+                        // Fallback for equal mode if cell isn't visible
+                        dollarAmount = totalAmount / Double(people.count)
+                    }
+                    
+                    let split = SplitBillMessage.PersonSplit(
+                        name: person.name.isEmpty ? "Person" : person.name,
+                        amount: dollarAmount,
+                        isPaid: false
+                    )
+                    personSplits.append(split)
+                }
         
         // Create message data
         let messageData = SplitBillMessage(
@@ -492,9 +493,9 @@ class MessagesViewController: MSMessagesAppViewController {
         
         // Create the message
         let layout = MSMessageTemplateLayout()
-        layout.caption = billTitleText
-        layout.subcaption = String(format: "Total: $%.2f", totalAmount)
-        layout.trailingCaption = "\(personSplits.count) people"
+       // layout.caption = billTitleText
+      //  layout.subcaption = String(format: "Total: $%.2f", totalAmount)
+      //  layout.trailingCaption = "\(personSplits.count) people"
         
         // Create image for the message
         let image = createMessageImage(for: messageData)
@@ -559,11 +560,7 @@ class MessagesViewController: MSMessagesAppViewController {
             for (index, person) in data.people.enumerated() {
                 let rowRect = CGRect(x: 10, y: yOffset, width: width - 20, height: rowHeight)
                 
-                // Alternating row background
-                if index % 2 == 0 {
-                    UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1).setFill()
-                    context.fill(rowRect)
-                }
+                
                 
                 // Checkbox circle
                 let circleSize: CGFloat = 24
@@ -647,8 +644,8 @@ class MessagesViewController: MSMessagesAppViewController {
     }
     
     private func showAlert(message: String) {
-        let alert = UIAlertController(title: "Oops!", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        let alert = UIAlertController(title: "my bad dawg", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "ur good wys", style: .default))
         present(alert, animated: true)
     }
     

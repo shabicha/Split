@@ -17,7 +17,7 @@ class PersonTableViewCell: UITableViewCell {
     static let identifier = "PersonTableViewCell"
     
     private let nameTextField = UITextField()
-    private let percentageTextField = UITextField()
+    let percentageTextField = UITextField()
     private let removeButton = UIButton()
     private let containerView = UIView()
     private let percentLabel = UILabel()
