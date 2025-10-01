@@ -372,6 +372,18 @@ class MessagesViewController: MSMessagesAppViewController {
     
     
     override func willBecomeActive(with conversation: MSConversation) {
+        print("willBecomeActive called")
+            print("Selected message exists: \(conversation.selectedMessage != nil)")
+            
+            if let selectedMessage = conversation.selectedMessage {
+                print("Message was tapped - showing tracking view")
+                if let url = selectedMessage.url,
+                           let messageData = decodeMessageData(from: url) {
+                            showPaymentTrackingView(with: messageData, originalMessage: selectedMessage, conversation: conversation)
+                        }
+            } else {
+                print("No selected message - normal creation view")
+            }
         // Called when the extension is about to move from the inactive to active state.
         // This will happen when the extension is about to present UI.
         
@@ -390,7 +402,7 @@ class MessagesViewController: MSMessagesAppViewController {
    
     override func didReceive(_ message: MSMessage, conversation: MSConversation) {
         // Handle received message
-        handleReceivedMessage(message)
+        handleReceivedMessage(message, conversation: conversation)
     }
     
     override func didStartSending(_ message: MSMessage, conversation: MSConversation) {
@@ -560,7 +572,11 @@ class MessagesViewController: MSMessagesAppViewController {
             for (index, person) in data.people.enumerated() {
                 let rowRect = CGRect(x: 10, y: yOffset, width: width - 20, height: rowHeight)
                 
-                
+                // Alternating row background
+                if index % 2 == 0 {
+                    UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1).setFill()
+                    context.fill(rowRect)
+                }
                 
                 // Checkbox circle
                 let circleSize: CGFloat = 24
@@ -644,28 +660,29 @@ class MessagesViewController: MSMessagesAppViewController {
     }
     
     private func showAlert(message: String) {
-        let alert = UIAlertController(title: "my bad dawg", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "ur good wys", style: .default))
+        let alert = UIAlertController(title: "cmon dawg", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "ur good", style: .default))
         present(alert, animated: true)
     }
     
     // Handle received messages
-    func handleReceivedMessage(_ message: MSMessage) {
+    func handleReceivedMessage(_ message: MSMessage, conversation: MSConversation) {
         guard let url = message.url,
               let messageData = decodeMessageData(from: url) else {
             return
         }
         
-        // Show interactive view for marking people as paid
-        showPaymentTrackingView(with: messageData, originalMessage: message)
+        // Show view for payment view controller people as paid
+        showPaymentTrackingView(with: messageData, originalMessage: message,  conversation: conversation)
     }
     
-    private func showPaymentTrackingView(with data: SplitBillMessage, originalMessage: MSMessage) {
+    private func showPaymentTrackingView(with data: SplitBillMessage, originalMessage: MSMessage, conversation: MSConversation) {
+        
         // Create and show a view controller for tracking payments
         let trackingVC = PaymentTrackingViewController()
         trackingVC.messageData = data
         trackingVC.originalMessage = originalMessage
-        trackingVC.conversation = activeConversation
+        trackingVC.conversation = conversation
         
         addChild(trackingVC)
         view.addSubview(trackingVC.view)
@@ -680,309 +697,4 @@ class MessagesViewController: MSMessagesAppViewController {
         ])
     }
 
-}
-
-// MARK: - Payment Tracking View Controller
-class PaymentTrackingViewController: UIViewController {
-    var messageData: SplitBillMessage?
-    var originalMessage: MSMessage?
-    var conversation: MSConversation?
-    
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private let headerView = UIView()
-    private let billTitleLabel = UILabel()
-    private let totalAmountLabel = UILabel()
-    private let updateButton = UIButton()
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = UIColor(red: 0.949, green: 0.949, blue: 0.969, alpha: 1)
-        setupUI()
-    }
-    
-    private func setupUI() {
-        // Header
-        headerView.backgroundColor = UIColor(red: 0.463, green: 0.463, blue: 0.502, alpha: 0.12)
-        view.addSubview(headerView)
-        
-        billTitleLabel.font = UIFont.systemFont(ofSize: 24, weight: .bold)
-        billTitleLabel.text = messageData?.billTitle ?? "Split Bill"
-        headerView.addSubview(billTitleLabel)
-        
-        totalAmountLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        totalAmountLabel.textColor = .darkGray
-        if let total = messageData?.totalAmount {
-            totalAmountLabel.text = String(format: "Total: $%.2f", total)
-        }
-        headerView.addSubview(totalAmountLabel)
-        
-        // Table view
-        tableView.delegate = self
-        tableView.dataSource = self
-        tableView.register(PaymentTrackingCell.self, forCellReuseIdentifier: "PaymentTrackingCell")
-        view.addSubview(tableView)
-        
-        // Update button
-        updateButton.setTitle("Update Split", for: .normal)
-        updateButton.backgroundColor = UIColor(red: 0, green: 0.533, blue: 1, alpha: 1)
-        updateButton.layer.cornerRadius = 20
-        updateButton.addTarget(self, action: #selector(updateSplit), for: .touchUpInside)
-        view.addSubview(updateButton)
-        
-        // Constraints
-        headerView.translatesAutoresizingMaskIntoConstraints = false
-        billTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        totalAmountLabel.translatesAutoresizingMaskIntoConstraints = false
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        updateButton.translatesAutoresizingMaskIntoConstraints = false
-        
-        NSLayoutConstraint.activate([
-            headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 80),
-            
-            billTitleLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 15),
-            billTitleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20),
-            
-            totalAmountLabel.topAnchor.constraint(equalTo: billTitleLabel.bottomAnchor, constant: 5),
-            totalAmountLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20),
-            
-            tableView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: updateButton.topAnchor, constant: -20),
-            
-            updateButton.heightAnchor.constraint(equalToConstant: 51.79),
-            updateButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
-            updateButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
-            updateButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20)
-        ])
-    }
-    
-    @objc private func updateSplit() {
-        guard let data = messageData,
-              let message = originalMessage,
-              let conversation = conversation else {
-            return
-        }
-        
-        // Create updated message with new payment status
-        let layout = MSMessageTemplateLayout()
-        layout.caption = data.billTitle
-        layout.subcaption = String(format: "Total: $%.2f", data.totalAmount)
-        
-        let paidCount = data.people.filter { $0.isPaid }.count
-        layout.trailingCaption = "\(paidCount)/\(data.people.count) paid"
-        
-        let image = createUpdatedMessageImage(for: data)
-        layout.image = image
-        
-        let updatedMessage = MSMessage(session: message.session ?? MSSession())
-        updatedMessage.layout = layout
-        
-        if let url = encodeMessageData(data) {
-            updatedMessage.url = url
-        }
-        
-        conversation.insert(updatedMessage) { error in
-            if let error = error {
-                print("Error updating message: \(error)")
-            }
-        }
-    }
-    
-    private func createUpdatedMessageImage(for data: SplitBillMessage) -> UIImage {
-        let width: CGFloat = 300
-        let rowHeight: CGFloat = 50
-        let headerHeight: CGFloat = 80
-        let height = headerHeight + (CGFloat(data.people.count) * rowHeight) + 20
-        
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height))
-        
-        return renderer.image { context in
-            UIColor.white.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-            
-            let headerRect = CGRect(x: 0, y: 0, width: width, height: headerHeight)
-            UIColor(red: 0.463, green: 0.463, blue: 0.502, alpha: 0.12).setFill()
-            context.fill(headerRect)
-            
-            let titleAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 20, weight: .bold),
-                .foregroundColor: UIColor.black
-            ]
-            NSAttributedString(string: data.billTitle, attributes: titleAttributes).draw(at: CGPoint(x: 20, y: 15))
-            
-            let amountAttributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                .foregroundColor: UIColor.darkGray
-            ]
-            NSAttributedString(string: String(format: "Total: $%.2f", data.totalAmount), attributes: amountAttributes).draw(at: CGPoint(x: 20, y: 45))
-            
-            var yOffset = headerHeight + 10
-            
-            for (index, person) in data.people.enumerated() {
-                let rowRect = CGRect(x: 10, y: yOffset, width: width - 20, height: rowHeight)
-                
-                if index % 2 == 0 {
-                    UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1).setFill()
-                    context.fill(rowRect)
-                }
-                
-                let circleSize: CGFloat = 24
-                let circleRect = CGRect(x: 20, y: yOffset + (rowHeight - circleSize) / 2, width: circleSize, height: circleSize)
-                
-                if person.isPaid {
-                    UIColor.systemGreen.setFill()
-                    context.fill(circleRect)
-                    
-                    UIColor.white.setStroke()
-                    let checkPath = UIBezierPath()
-                    checkPath.move(to: CGPoint(x: circleRect.minX + 6, y: circleRect.midY))
-                    checkPath.addLine(to: CGPoint(x: circleRect.midX - 2, y: circleRect.maxY - 8))
-                    checkPath.addLine(to: CGPoint(x: circleRect.maxX - 6, y: circleRect.minY + 6))
-                    checkPath.lineWidth = 2
-                    checkPath.lineCapStyle = .round
-                    checkPath.stroke()
-                } else {
-                    UIColor.systemBlue.setStroke()
-                    let circlePath = UIBezierPath(ovalIn: circleRect)
-                    circlePath.lineWidth = 2
-                    circlePath.stroke()
-                }
-                
-                let nameAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 16, weight: .regular),
-                    .foregroundColor: person.isPaid ? UIColor.lightGray : UIColor.black
-                ]
-                NSAttributedString(string: person.name, attributes: nameAttributes).draw(at: CGPoint(x: 55, y: yOffset + 15))
-                
-                let amountStr = String(format: "$%.2f", person.amount)
-                let personAmountAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                    .foregroundColor: person.isPaid ? UIColor.systemGreen : UIColor.systemBlue
-                ]
-                let personAmountString = NSAttributedString(string: amountStr, attributes: personAmountAttributes)
-                let amountSize = personAmountString.size()
-                personAmountString.draw(at: CGPoint(x: width - amountSize.width - 20, y: yOffset + 15))
-                
-                yOffset += rowHeight
-            }
-        }
-    }
-    
-    private func encodeMessageData(_ data: SplitBillMessage) -> URL? {
-        guard let jsonData = try? JSONEncoder().encode(data),
-              let jsonString = String(data: jsonData, encoding: .utf8),
-              let encodedString = jsonString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            return nil
-        }
-        
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "splitz.app"
-        components.path = "/split"
-        components.queryItems = [URLQueryItem(name: "data", value: encodedString)]
-        
-        return components.url
-    }
-}
-
-extension PaymentTrackingViewController: UITableViewDataSource, UITableViewDelegate {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return messageData?.people.count ?? 0
-    }
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "PaymentTrackingCell", for: indexPath) as! PaymentTrackingCell
-        
-        if let person = messageData?.people[indexPath.row] {
-            cell.configure(with: person)
-            cell.onTogglePaid = { [weak self, weak tableView] in
-                self?.messageData?.people[indexPath.row].isPaid.toggle()
-                if let updatedPerson = self?.messageData?.people[indexPath.row] {
-                    cell.configure(with: updatedPerson)
-                }
-            }
-        }
-        
-        return cell
-    }
-    
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 60
-    }
-}
-
-// MARK: - Payment Tracking Cell
-class PaymentTrackingCell: UITableViewCell {
-    private let nameLabel = UILabel()
-    private let amountLabel = UILabel()
-    private let checkButton = UIButton()
-    
-    var onTogglePaid: (() -> Void)?
-    
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        setupUI()
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    private func setupUI() {
-        selectionStyle = .none
-        
-        checkButton.setImage(UIImage(systemName: "circle"), for: .normal)
-        checkButton.setImage(UIImage(systemName: "checkmark.circle.fill"), for: .selected)
-        checkButton.tintColor = .systemBlue
-        checkButton.addTarget(self, action: #selector(togglePressed), for: .touchUpInside)
-        
-        nameLabel.font = UIFont.systemFont(ofSize: 16, weight: .regular)
-        amountLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-        amountLabel.textColor = .systemBlue
-        
-        contentView.addSubview(checkButton)
-        contentView.addSubview(nameLabel)
-        contentView.addSubview(amountLabel)
-        
-        checkButton.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        amountLabel.translatesAutoresizingMaskIntoConstraints = false
-        
-        NSLayoutConstraint.activate([
-            checkButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            checkButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            checkButton.widthAnchor.constraint(equalToConstant: 30),
-            checkButton.heightAnchor.constraint(equalToConstant: 30),
-            
-            nameLabel.leadingAnchor.constraint(equalTo: checkButton.trailingAnchor, constant: 16),
-            nameLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            
-            amountLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            amountLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
-        ])
-    }
-    
-    func configure(with person: SplitBillMessage.PersonSplit) {
-        nameLabel.text = person.name
-        amountLabel.text = String(format: "$%.2f", person.amount)
-        checkButton.isSelected = person.isPaid
-        
-        if person.isPaid {
-            nameLabel.textColor = .lightGray
-            amountLabel.textColor = .systemGreen
-            checkButton.tintColor = .systemGreen
-        } else {
-            nameLabel.textColor = .black
-            amountLabel.textColor = .systemBlue
-            checkButton.tintColor = .systemBlue
-        }
-    }
-    
-    @objc private func togglePressed() {
-        onTogglePaid?()
-    }
 }
